@@ -724,18 +724,20 @@
     <iframe class="vt-modal-frame" id="vt-pdf-frame"></iframe>
   </div>
 </div>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function() {
-  const STORAGE_KEY = 'vinted-orders';
-  const API_BASE = window.VINTED_API_BASE || (window.location.protocol === 'http:' || window.location.protocol === 'https:' ? '' : 'http://127.0.0.1:8787');
-  const MAX_LOCAL_ATTACHMENT_CHARS = 1600000;
-  const MAX_API_ATTACHMENT_CHARS = 12000000;
-  const MAX_IMAGE_SIDE = 1100;
-  const IMAGE_QUALITY = 0.74;
-  let orders = [];
-  let apiMode = false;
-  let editingId = null;
+  const SUPABASE_URL = "https://fhqjuuicnlacajntzfml.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZocWp1dWljbmxhY2FqbnR6Zm1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDE5OTAsImV4cCI6MjA5OTAxNzk5MH0.bQdx63HflFuff6gixItyfkncUL4eKxGGyslMWfn-i_E";
+
+const supabaseClient = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+
+let orders = [];
+let editingId = null;
+let apiMode = true;
 
   const root = document.currentScript.parentElement;
 
@@ -790,29 +792,78 @@
     };
   }
 
-  async function loadOrders() {
-    try {
-      const result = await apiRequest('/api/orders');
-      orders = Array.isArray(result.orders) ? result.orders : [];
-      apiMode = true;
-      setApiStatus('API locale active', true);
-      render();
-      notify('API locale connectée');
-      return;
-    } catch (apiError) {
-      apiMode = false;
-      setApiStatus('Mode navigateur', false);
-    }
+  async function addOrder(data) {
 
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      orders = raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      orders = [];
-    }
-    render();
-    notify('Mode navigateur actif');
+  const payload = orderPayload(data);
+
+  const { data:newOrder, error } =
+    await supabaseClient
+      .from('orders')
+      .insert([payload])
+      .select()
+      .single();
+
+  if(error){
+    throw error;
   }
+
+  orders.unshift(newOrder);
+  render();
+  notify("Commande ajoutée");
+}
+async function deleteOrder(id){
+
+ const { error } =
+ await supabaseClient
+ .from('orders')
+ .delete()
+ .eq('id',id);
+
+ if(error) throw error;
+
+ orders = orders.filter(o=>o.id!==id);
+ render();
+ notify("Commande supprimée");
+}
+async function updateOrder(id,data){
+
+ const { error } =
+ await supabaseClient
+ .from('orders')
+ .update({
+   article:data.article,
+   buyer:data.buyer,
+   price:parseFloat(data.price)||0,
+   category:data.category,
+   tracking:data.tracking,
+   notes:data.notes,
+   postit:data.postit,
+   date:data.date
+ })
+ .eq('id',id);
+
+
+ if(error) throw error;
+
+ await loadOrders();
+ notify("Commande mise à jour");
+}
+  async function loadOrders() {
+  const { data, error } = await supabaseClient
+    .from('orders')
+    .select('*')
+    .order('date', { ascending: false });
+
+  if (error) {
+    console.error(error);
+    notify("Erreur Supabase : " + error.message);
+    return;
+  }
+
+  orders = data || [];
+  setApiStatus("Supabase connecté", true);
+  render();
+}
 
   async function saveOrders() {
     if (apiMode) return;
@@ -916,14 +967,26 @@
     }
   }
 
-  async function advanceStatus(id) {
-    if (apiMode) {
-      const result = await apiRequest('/api/orders/' + encodeURIComponent(id) + '/advance', { method: 'POST' });
-      orders = Array.isArray(result.orders) ? result.orders : orders;
-      render();
-      notify('Statut mis à jour');
-      return;
-    }
+  async function advanceStatus(id){
+
+ const order = orders.find(o=>o.id===id);
+ if(!order) return;
+
+ let next = order.status;
+
+ if(next==="a_preparer") next="expedie";
+ else if(next==="expedie") next="livre";
+
+ const {error}=await supabaseClient
+ .from('orders')
+ .update({status:next})
+ .eq('id',id);
+
+ if(error) throw error;
+
+ await loadOrders();
+ notify("Statut mis à jour");
+}
 
     const order = orders.find(o => o.id === id);
     if (!order) return;
