@@ -792,20 +792,7 @@ let apiMode = true;
     };
   }
 
-  async function addOrder(data) {
 
-  const payload = orderPayload(data);
-
-  const { data:newOrder, error } =
-    await supabaseClient
-      .from('orders')
-      .insert([payload])
-      .select()
-      .single();
-
-  if(error){
-    throw error;
-  }
 
   orders.unshift(newOrder);
   render();
