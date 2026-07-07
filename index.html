@@ -614,8 +614,12 @@
     <div class="vt-addbar">
       <button class="vt-btn-add" id="vt-toggle-form">+ Nouvelle commande</button>
       <button class="vt-btn-sync" id="vt-sync-vinted">⟳ Synchroniser avec Vinted</button>
+      <button class="vt-btn-sync" id="vt-export-file">⬇ Enregistrer un fichier</button>
+      <button class="vt-btn-sync" id="vt-import-file">⬆ Restaurer un fichier</button>
+      <input type="file" id="vt-import-input" accept="application/json" style="display:none;">
       <span class="vt-api-badge" id="vt-api-status">Mode navigateur</span>
     </div>
+    <div id="vt-autosave-info" style="font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.04em; color:rgba(231,217,186,0.45); margin:-14px 0 18px;"></div>
 
     <div class="vt-form" id="vt-form">
       <p class="vt-form-title" id="vt-form-title">Nouvelle commande</p>
@@ -814,6 +818,8 @@
     notify('Mode navigateur actif');
   }
 
+  const LAST_EXPORT_KEY = 'vinted-orders-last-export';
+
   async function saveOrders() {
     if (apiMode) return;
     try {
@@ -821,6 +827,58 @@
     } catch (e) {
       console.error('Erreur de sauvegarde', e);
     }
+    updateAutosaveInfo();
+  }
+
+  function updateAutosaveInfo() {
+    const info = root.querySelector('#vt-autosave-info');
+    if (!info) return;
+    const last = localStorage.getItem(LAST_EXPORT_KEY);
+    if (last) {
+      const d = new Date(last);
+      info.textContent = 'Enregistré dans le navigateur en continu · dernier fichier exporté : ' + d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    } else {
+      info.textContent = "Enregistré dans le navigateur en continu · pense à taper \"Enregistrer un fichier\" de temps en temps pour garder une copie dans l'app Fichiers.";
+    }
+  }
+
+  function exportToFile() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      orders
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    a.href = url;
+    a.download = 'suivi-vinted-' + stamp + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    localStorage.setItem(LAST_EXPORT_KEY, new Date().toISOString());
+    updateAutosaveInfo();
+    notify('Fichier enregistré — choisis "Enregistrer dans Fichiers" dans la fenêtre iOS');
+  }
+
+  function importFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        const incoming = Array.isArray(parsed) ? parsed : parsed.orders;
+        if (!Array.isArray(incoming)) throw new Error('Format invalide');
+        orders = incoming;
+        saveOrders();
+        render();
+        notify('Commandes restaurées depuis le fichier');
+      } catch (e) {
+        alert("Impossible de lire ce fichier : " + e.message);
+      }
+    };
+    reader.onerror = () => alert('Impossible de lire ce fichier.');
+    reader.readAsText(file);
   }
 
   function uid() {
@@ -1240,6 +1298,32 @@
     resetForm();
   });
 
+  root.querySelector('#vt-export-file').addEventListener('click', () => {
+    exportToFile();
+  });
+
+  root.querySelector('#vt-import-file').addEventListener('click', () => {
+    root.querySelector('#vt-import-input').click();
+  });
+
+  root.querySelector('#vt-import-input').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) importFromFile(file);
+    e.target.value = '';
+  });
+
+  // Rappel discret : si l'onglet se ferme/se met en arrière-plan et qu'aucun
+  // export n'a été fait depuis un moment, on prévient l'utilisateur au retour.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && !apiMode && orders.length) {
+      const last = localStorage.getItem(LAST_EXPORT_KEY);
+      const daysSince = last ? (Date.now() - new Date(last).getTime()) / 86400000 : Infinity;
+      if (daysSince > 7) {
+        try { localStorage.setItem('vinted-needs-export-reminder', '1'); } catch (e) {}
+      }
+    }
+  });
+
   root.querySelector('#vt-sync-vinted').addEventListener('click', async () => {
     if (!apiMode) {
       alert("La synchronisation Vinted necessite que l'API locale (api-server.ps1) soit lancee.");
@@ -1287,7 +1371,13 @@
     }
   });
 
-  loadOrders();
+  loadOrders().then(() => {
+    updateAutosaveInfo();
+    if (!apiMode && localStorage.getItem('vinted-needs-export-reminder')) {
+      localStorage.removeItem('vinted-needs-export-reminder');
+      notify('Ça fait plus de 7 jours sans fichier exporté — pense à taper "Enregistrer un fichier" pour garder une copie de sécurité.');
+    }
+  });
 })();
 </script>
 </body>
