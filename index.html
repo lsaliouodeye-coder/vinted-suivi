@@ -225,8 +225,10 @@ console.log("Supabase chargé :", typeof supabase);
   (function() {
     // Remplacer par vos propres URL et clé anon depuis le projet Supabase
     const SUPABASE_URL = "https://fhqjuuicnlacajntzfml.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZocWp1dWljbmxhY2FqbnR6Zm1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDE5OTAsImV4cCI6MjA5OTAxNzk5MH0.bQdx63HflFuff6gixItyfkncUL4eKxGGyslMWfn-i_E";
+    const SUPABASE_ANON_KEY = "sb_publishable_df_l9X6zQmcW0ZWsL8gzqw_zScyRdaL";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log("URL :", SUPABASE_URL);
+    console.log("KEY :", SUPABASE_ANON_KEY.substring(0,20));
     let orders = [];
     let editingId = null;
     const root = document.querySelector('.vt-root');
