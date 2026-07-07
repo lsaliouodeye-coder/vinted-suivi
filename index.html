@@ -219,10 +219,13 @@
   <!-- Supabase JS v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+console.log("Supabase chargé :", typeof supabase);
+</script>
+  <script>
   (function() {
     // Remplacer par vos propres URL et clé anon depuis le projet Supabase
     const SUPABASE_URL = "https://fhqjuuicnlacajntzfml.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZocWp1dWljbmxhY2FqbnR6Zm1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDE5OTAsImV4cCI6MjA5OTAxNzk5MH0.bQdx63HflFuff6gixItyfkncUL4eKxGGyslMWfn-i_E";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let orders = [];
     let editingId = null;
@@ -461,10 +464,8 @@
 
     /** Affiche le formulaire */
     function openForm() {
-      resetForm();
-      root.querySelector('#f-date').valueAsDate = new Date();
       root.querySelector('#vt-form').classList.add('open');
-      root.querySelector('#f-article').focus();
+root.querySelector('#f-article').focus();
     }
     /** Ferme le formulaire */
     function closeForm() {
@@ -505,8 +506,7 @@
           <div class="vt-card-body">
             <div class="vt-card-top">
               <div class="vt-card-article">${article}</div>
-              <div class="vt-card-price">${o.price.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:2})}€</div>
-            </div>
+<div class="vt-card-price">${Number(o.price || 0).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:2})}€</div>            </div>
             <div class="vt-card-buyer">${buyer ? '@'+buyer : '<em>Acheteur non renseigné</em>'}</div>
             <div class="vt-card-meta"><span>${escapeHtml(o.category)}</span><span>${new Date(o.date).toLocaleDateString('fr-FR')}</span></div>
             ${tracking ? `<div class="vt-card-meta"><span>Suivi</span><span>${tracking}</span></div>` : ''}
@@ -553,8 +553,12 @@
       root.querySelector('#stat-pending').textContent = orders.filter(o => o.status === 'a_preparer').length;
 
       // Graphique revenu 6 derniers mois
-      const months = []; const chart = root.querySelector('#vt-chart');
-      for (let i = 5; i >= 0; i--) {
+      // Graphique revenu 6 derniers mois
+const now = new Date();
+const months = [];
+const chart = root.querySelector('#vt-chart');
+
+for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
         months.push({ label: d.toLocaleDateString('fr-FR',{month:'short'}), rev: 0 });
       }
